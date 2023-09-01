@@ -61,8 +61,8 @@ extern struct _spi_bdev_t spi_bdev;
 
 // UART2 config (MicroMod UART1)
 #define MICROPY_HW_UART2_NAME "UART1"
-#define MICROPY_HW_UART2_TX (pin_A2)
-#define MICROPY_HW_UART2_RX (pin_A3)
+#define MICROPY_HW_UART2_TX (pin_A9)
+#define MICROPY_HW_UART2_RX (pin_A10)
 
 // CAN1 config (MicroMod CAN)
 #define MICROPY_HW_CAN1_NAME "CAN"
