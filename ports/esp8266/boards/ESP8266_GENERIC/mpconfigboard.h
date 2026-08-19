@@ -7,13 +7,10 @@
 #define MICROPY_EMIT_XTENSA             (1)
 #define MICROPY_EMIT_INLINE_XTENSA      (1)
 
-#define MICROPY_DEBUG_PRINTERS          (1)
 #define MICROPY_ERROR_REPORTING         (MICROPY_ERROR_REPORTING_NORMAL)
 
 #define MICROPY_READER_VFS              (MICROPY_VFS)
 #define MICROPY_VFS                     (1)
-
-#define MICROPY_PY_CRYPTOLIB            (1)
 
 #elif defined(MICROPY_ESP8266_1M)
 
@@ -24,14 +21,10 @@
 #define MICROPY_EMIT_XTENSA             (1)
 #define MICROPY_EMIT_INLINE_XTENSA      (1)
 
-#define MICROPY_DEBUG_PRINTERS          (1)
 #define MICROPY_ERROR_REPORTING         (MICROPY_ERROR_REPORTING_NORMAL)
 
 #define MICROPY_READER_VFS              (MICROPY_VFS)
 #define MICROPY_VFS                     (1)
-
-
-#define MICROPY_PY_CRYPTOLIB            (1)
 
 #elif defined(MICROPY_ESP8266_512K)
 
@@ -47,6 +40,7 @@
 #define MICROPY_PY_SYS_STDIO_BUFFER     (0)
 #define MICROPY_PY_ASYNCIO              (0)
 #define MICROPY_PY_RE_SUB               (0)
+#define MICROPY_PY_CRYPTOLIB            (0)
 #define MICROPY_PY_FRAMEBUF             (0)
 
 #endif

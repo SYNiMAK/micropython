@@ -28,11 +28,8 @@
 
 #define MICROPY_HW_BOARD_NAME       "Actinius Icarus"
 #define MICROPY_HW_MCU_NAME         "NRF9160"
-#define MICROPY_PY_SYS_PLATFORM     "nrf9160"
 
 #define MICROPY_PY_MACHINE_UART     (1)
-#define MICROPY_PY_MACHINE_HW_PWM   (0)
-#define MICROPY_PY_MACHINE_HW_SPI   (1)
 #define MICROPY_PY_MACHINE_RTCOUNTER (1)
 #define MICROPY_PY_MACHINE_I2C      (1)
 #define MICROPY_PY_MACHINE_ADC      (0)

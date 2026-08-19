@@ -26,6 +26,7 @@
  */
 
 #include "py/runtime.h"
+#include "extmod/modmachine.h"
 #include "uart.h"
 
 bool mp_os_dupterm_is_builtin_stream(mp_const_obj_t stream) {

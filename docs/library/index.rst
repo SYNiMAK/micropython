@@ -69,16 +69,20 @@ library.
    heapq.rst
    io.rst
    json.rst
+   marshal.rst
    math.rst
    os.rst
+   platform.rst
    random.rst
    re.rst
    select.rst
    socket.rst
    ssl.rst
+   string.templatelib.rst
    struct.rst
    sys.rst
    time.rst
+   weakref.rst
    zlib.rst
    _thread.rst
 
@@ -102,7 +106,9 @@ the following libraries.
    micropython.rst
    neopixel.rst
    network.rst
+   openamp.rst
    uctypes.rst
+   vfs.rst
 
 The following libraries provide drivers for hardware components.
 
@@ -167,6 +173,16 @@ The following libraries are specific to the ESP8266 and ESP32.
 
   espnow.rst
 
+
+Libraries specific to NXP i.MXRT
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following libraries are specific to the NXP i.MXRT family of microcontrollers.
+
+.. toctree::
+  :maxdepth: 2
+
+  mimxrt.rst
 
 Libraries specific to the RP2040
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

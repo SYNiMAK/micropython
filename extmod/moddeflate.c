@@ -54,6 +54,8 @@ typedef enum {
     DEFLATEIO_FORMAT_MAX = DEFLATEIO_FORMAT_GZIP,
 } deflateio_format_t;
 
+// This is used when the wbits is unset in the DeflateIO constructor. Default
+// to the smallest window size (faster compression, less RAM usage, etc).
 const int DEFLATEIO_DEFAULT_WBITS = 8;
 
 typedef struct {
@@ -83,7 +85,7 @@ typedef struct {
     #endif
 } mp_obj_deflateio_t;
 
-STATIC int deflateio_read_stream(void *data) {
+static int deflateio_read_stream(void *data) {
     mp_obj_deflateio_t *self = data;
     const mp_stream_p_t *stream = mp_get_stream(self->stream);
     int err;
@@ -98,7 +100,7 @@ STATIC int deflateio_read_stream(void *data) {
     return c;
 }
 
-STATIC bool deflateio_init_read(mp_obj_deflateio_t *self) {
+static bool deflateio_init_read(mp_obj_deflateio_t *self) {
     if (self->read) {
         return true;
     }
@@ -114,25 +116,33 @@ STATIC bool deflateio_init_read(mp_obj_deflateio_t *self) {
     // Don't modify self->window_bits as it may also be used for write.
     int wbits = self->window_bits;
 
-    // Parse the header if we're in NONE/ZLIB/GZIP modes.
-    if (self->format != DEFLATEIO_FORMAT_RAW) {
-        int header_wbits = wbits;
+    if (self->format == DEFLATEIO_FORMAT_RAW) {
+        if (wbits == 0) {
+            // The docs recommends always setting wbits explicitly when using
+            // RAW, but we still allow a default.
+            wbits = DEFLATEIO_DEFAULT_WBITS;
+        }
+    } else {
+        // Parse the header if we're in NONE/ZLIB/GZIP modes.
+        int header_wbits;
         int header_type = uzlib_parse_zlib_gzip_header(&self->read->decomp, &header_wbits);
-        if ((self->format == DEFLATEIO_FORMAT_ZLIB && header_type != UZLIB_HEADER_ZLIB) || (self->format == DEFLATEIO_FORMAT_GZIP && header_type != UZLIB_HEADER_GZIP)) {
+        if (header_type < 0) {
+            // Stream header was invalid.
             return false;
         }
-        if (wbits == 0 && header_wbits < 15) {
-            // If the header specified something lower than the default, then
-            // use that instead.
+        if ((self->format == DEFLATEIO_FORMAT_ZLIB && header_type != UZLIB_HEADER_ZLIB) || (self->format == DEFLATEIO_FORMAT_GZIP && header_type != UZLIB_HEADER_GZIP)) {
+            // Not what we expected.
+            return false;
+        }
+        // header_wbits will either be 15 (gzip) or 8-15 (zlib).
+        if (wbits == 0 || header_wbits < wbits) {
+            // If the header specified something lower, then use that instead.
+            // No point doing a bigger allocation than we need to.
             wbits = header_wbits;
         }
     }
 
-    if (wbits == 0) {
-        wbits = DEFLATEIO_DEFAULT_WBITS;
-    }
-
-    size_t window_len = 1 << wbits;
+    size_t window_len = (size_t)1 << wbits;
     self->read->window = m_new(uint8_t, window_len);
 
     uzlib_uncompress_init(&self->read->decomp, self->read->window, window_len);
@@ -141,7 +151,7 @@ STATIC bool deflateio_init_read(mp_obj_deflateio_t *self) {
 }
 
 #if MICROPY_PY_DEFLATE_COMPRESS
-STATIC void deflateio_out_byte(void *data, uint8_t b) {
+static void deflateio_out_byte(void *data, uint8_t b) {
     mp_obj_deflateio_t *self = data;
     const mp_stream_p_t *stream = mp_get_stream(self->stream);
     int err;
@@ -151,22 +161,27 @@ STATIC void deflateio_out_byte(void *data, uint8_t b) {
     }
 }
 
-STATIC bool deflateio_init_write(mp_obj_deflateio_t *self) {
+static bool deflateio_init_write(mp_obj_deflateio_t *self) {
     if (self->write) {
         return true;
     }
 
     const mp_stream_p_t *stream = mp_get_stream_raise(self->stream, MP_STREAM_OP_WRITE);
 
-    self->write = m_new_obj(mp_obj_deflateio_write_t);
-    self->write->input_len = 0;
-
     int wbits = self->window_bits;
     if (wbits == 0) {
+        // Same default wbits for all formats.
         wbits = DEFLATEIO_DEFAULT_WBITS;
     }
+
+    // Allocate the large window before allocating the mp_obj_deflateio_write_t, in case the
+    // window allocation fails the mp_obj_deflateio_t object will remain in a consistent state.
     size_t window_len = 1 << wbits;
-    self->write->window = m_new(uint8_t, window_len);
+    uint8_t *window = m_new(uint8_t, window_len);
+
+    self->write = m_new_obj(mp_obj_deflateio_write_t);
+    self->write->window = window;
+    self->write->input_len = 0;
 
     uzlib_lz77_init(&self->write->lz77, self->write->window, window_len);
     self->write->lz77.dest_write_data = self;
@@ -203,7 +218,7 @@ STATIC bool deflateio_init_write(mp_obj_deflateio_t *self) {
 }
 #endif
 
-STATIC mp_obj_t deflateio_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args_in) {
+static mp_obj_t deflateio_make_new(const mp_obj_type_t *type, size_t n_args, size_t n_kw, const mp_obj_t *args_in) {
     // args: stream, format=NONE, wbits=0, close=False
     mp_arg_check_num(n_args, n_kw, 1, 4, false);
 
@@ -230,7 +245,7 @@ STATIC mp_obj_t deflateio_make_new(const mp_obj_type_t *type, size_t n_args, siz
     return MP_OBJ_FROM_PTR(self);
 }
 
-STATIC mp_uint_t deflateio_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *errcode) {
+static mp_uint_t deflateio_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *errcode) {
     mp_obj_deflateio_t *self = MP_OBJ_TO_PTR(o_in);
 
     if (self->stream == MP_OBJ_NULL || !deflateio_init_read(self)) {
@@ -257,7 +272,7 @@ STATIC mp_uint_t deflateio_read(mp_obj_t o_in, void *buf, mp_uint_t size, int *e
 }
 
 #if MICROPY_PY_DEFLATE_COMPRESS
-STATIC mp_uint_t deflateio_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode) {
+static mp_uint_t deflateio_write(mp_obj_t self_in, const void *buf, mp_uint_t size, int *errcode) {
     mp_obj_deflateio_t *self = MP_OBJ_TO_PTR(self_in);
 
     if (self->stream == MP_OBJ_NULL || !deflateio_init_write(self)) {
@@ -291,7 +306,7 @@ static inline void put_be32(char *buf, uint32_t value) {
 }
 #endif
 
-STATIC mp_uint_t deflateio_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode) {
+static mp_uint_t deflateio_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t arg, int *errcode) {
     if (request == MP_STREAM_CLOSE) {
         mp_obj_deflateio_t *self = MP_OBJ_TO_PTR(self_in);
 
@@ -340,7 +355,7 @@ STATIC mp_uint_t deflateio_ioctl(mp_obj_t self_in, mp_uint_t request, uintptr_t 
     }
 }
 
-STATIC const mp_stream_p_t deflateio_stream_p = {
+static const mp_stream_p_t deflateio_stream_p = {
     .read = deflateio_read,
     #if MICROPY_PY_DEFLATE_COMPRESS
     .write = deflateio_write,
@@ -349,7 +364,7 @@ STATIC const mp_stream_p_t deflateio_stream_p = {
 };
 
 #if !MICROPY_ENABLE_DYNRUNTIME
-STATIC const mp_rom_map_elem_t deflateio_locals_dict_table[] = {
+static const mp_rom_map_elem_t deflateio_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&mp_stream_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_readinto), MP_ROM_PTR(&mp_stream_readinto_obj) },
     { MP_ROM_QSTR(MP_QSTR_readline), MP_ROM_PTR(&mp_stream_unbuffered_readline_obj) },
@@ -360,9 +375,9 @@ STATIC const mp_rom_map_elem_t deflateio_locals_dict_table[] = {
     { MP_ROM_QSTR(MP_QSTR___enter__), MP_ROM_PTR(&mp_identity_obj) },
     { MP_ROM_QSTR(MP_QSTR___exit__), MP_ROM_PTR(&mp_stream___exit___obj) },
 };
-STATIC MP_DEFINE_CONST_DICT(deflateio_locals_dict, deflateio_locals_dict_table);
+static MP_DEFINE_CONST_DICT(deflateio_locals_dict, deflateio_locals_dict_table);
 
-STATIC MP_DEFINE_CONST_OBJ_TYPE(
+static MP_DEFINE_CONST_OBJ_TYPE(
     deflateio_type,
     MP_QSTR_DeflateIO,
     MP_TYPE_FLAG_NONE,
@@ -371,7 +386,7 @@ STATIC MP_DEFINE_CONST_OBJ_TYPE(
     locals_dict, &deflateio_locals_dict
     );
 
-STATIC const mp_rom_map_elem_t mp_module_deflate_globals_table[] = {
+static const mp_rom_map_elem_t mp_module_deflate_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_deflate) },
     { MP_ROM_QSTR(MP_QSTR_DeflateIO), MP_ROM_PTR(&deflateio_type) },
     { MP_ROM_QSTR(MP_QSTR_AUTO), MP_ROM_INT(DEFLATEIO_FORMAT_AUTO) },
@@ -379,7 +394,7 @@ STATIC const mp_rom_map_elem_t mp_module_deflate_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_ZLIB), MP_ROM_INT(DEFLATEIO_FORMAT_ZLIB) },
     { MP_ROM_QSTR(MP_QSTR_GZIP), MP_ROM_INT(DEFLATEIO_FORMAT_GZIP) },
 };
-STATIC MP_DEFINE_CONST_DICT(mp_module_deflate_globals, mp_module_deflate_globals_table);
+static MP_DEFINE_CONST_DICT(mp_module_deflate_globals, mp_module_deflate_globals_table);
 
 const mp_obj_module_t mp_module_deflate = {
     .base = { &mp_type_module },

@@ -1,10 +1,18 @@
 # Test select.poll in combination with file descriptors.
 
 try:
-    import select, errno
+    import sys, select, errno
 
     select.poll  # Raises AttributeError for CPython implementations without poll()
 except (ImportError, AttributeError):
+    print("SKIP")
+    raise SystemExit
+
+# FreeBSD allows to have up to ~120k file descriptor by default, so this test
+# will fail on such a system.  Since there's no provision to query sysctl
+# values or an easy way to parse the output of `ulimit -n` the test is just
+# skipped on FreeBSD.
+if sys.platform == "freebsd":
     print("SKIP")
     raise SystemExit
 
@@ -34,11 +42,23 @@ poller.register(1, select.POLLIN)
 # Poll for input, should return an empty list.
 print(poller.poll(0))
 
-# Test registering a very large number of file descriptors.
+# Test registering a very large number of file descriptors (will trigger
+# EINVAL due to more than OPEN_MAX fds). Typically it's 1024 (and on GitHub CI
+# we force this via `ulimit -n 1024`).
 poller = select.poll()
 for fd in range(6000):
     poller.register(fd)
 try:
     poller.poll()
+    assert False
 except OSError as er:
     print(er.errno == errno.EINVAL)
+
+# Register stdout/stderr, plus many extra ones to trigger the fd vector
+# resizing. Then unregister the excess ones and verify poll still works.
+poller = select.poll()
+for fd in range(1, 1000):
+    poller.register(fd)
+for i in range(3, 1000):
+    poller.unregister(i)
+print(sorted(poller.poll()))

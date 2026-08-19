@@ -1,10 +1,8 @@
 # test VFS functionality without any particular filesystem type
 
 try:
-    import os
-
-    os.mount
-except (ImportError, AttributeError):
+    import os, vfs
+except ImportError:
     print("SKIP")
     raise SystemExit
 
@@ -21,11 +19,11 @@ class Filesystem:
         print(self.id, "umount")
 
     def ilistdir(self, dir):
-        print(self.id, "ilistdir", dir)
+        print(self.id, "ilistdir", repr(dir))
         return iter([("a%d" % self.id, 0, 0)])
 
     def chdir(self, dir):
-        print(self.id, "chdir", dir)
+        print(self.id, "chdir", repr(dir))
         if self.fail:
             raise OSError(self.fail)
 
@@ -34,23 +32,23 @@ class Filesystem:
         return "dir%d" % self.id
 
     def mkdir(self, path):
-        print(self.id, "mkdir", path)
+        print(self.id, "mkdir", repr(path))
 
     def remove(self, path):
-        print(self.id, "remove", path)
+        print(self.id, "remove", repr(path))
 
     def rename(self, old_path, new_path):
-        print(self.id, "rename", old_path, new_path)
+        print(self.id, "rename", repr(old_path), repr(new_path))
 
     def rmdir(self, path):
-        print(self.id, "rmdir", path)
+        print(self.id, "rmdir", repr(path))
 
     def stat(self, path):
-        print(self.id, "stat", path)
-        return (self.id,)
+        print(self.id, "stat", repr(path))
+        return (self.id, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     def statvfs(self, path):
-        print(self.id, "statvfs", path)
+        print(self.id, "statvfs", repr(path))
         return (self.id,)
 
     def open(self, file, mode):
@@ -59,14 +57,14 @@ class Filesystem:
 
 # first we umount any existing mount points the target may have
 try:
-    os.umount("/")
+    vfs.umount("/")
 except OSError:
     pass
 for path in os.listdir("/"):
-    os.umount("/" + path)
+    vfs.umount("/" + path)
 
 # stat root dir
-print(os.stat("/"))
+print(tuple(os.stat("/")))
 
 # statvfs root dir; verify that f_namemax has a sensible size
 print(os.statvfs("/")[9] >= 32)
@@ -83,7 +81,7 @@ for func in ("chdir", "listdir", "mkdir", "remove", "rmdir", "stat"):
             print(func, arg, "OSError")
 
 # basic mounting and listdir
-os.mount(Filesystem(1), "/test_mnt")
+vfs.mount(Filesystem(1), "/test_mnt")
 print(os.listdir())
 
 # ilistdir
@@ -103,13 +101,13 @@ print(os.listdir("test_mnt"))
 print(os.listdir("/test_mnt"))
 
 # mounting another filesystem
-os.mount(Filesystem(2), "/test_mnt2", readonly=True)
+vfs.mount(Filesystem(2), "/test_mnt2", readonly=True)
 print(os.listdir())
 print(os.listdir("/test_mnt2"))
 
 # mounting over an existing mount point
 try:
-    os.mount(Filesystem(3), "/test_mnt2")
+    vfs.mount(Filesystem(3), "/test_mnt2")
 except OSError:
     print("OSError")
 
@@ -133,29 +131,29 @@ os.mkdir("test_dir")
 os.remove("test_file")
 os.rename("test_file", "test_file2")
 os.rmdir("test_dir")
-print(os.stat("test_file"))
+print(tuple(os.stat("test_file")))
 print(os.statvfs("/test_mnt"))
 open("test_file")
 open("test_file", "wb")
 
 # umount
-os.umount("/test_mnt")
-os.umount("/test_mnt2")
+vfs.umount("/test_mnt")
+vfs.umount("/test_mnt2")
 
 # umount a non-existent mount point
 try:
-    os.umount("/test_mnt")
+    vfs.umount("/test_mnt")
 except OSError:
     print("OSError")
 
 # root dir
-os.mount(Filesystem(3), "/")
-print(os.stat("/"))
+vfs.mount(Filesystem(3), "/")
+print(tuple(os.stat("/")))
 print(os.statvfs("/"))
 print(os.listdir())
 open("test")
 
-os.mount(Filesystem(4), "/mnt")
+vfs.mount(Filesystem(4), "/mnt")
 print(os.listdir())
 print(os.listdir("/mnt"))
 os.chdir("/mnt")
@@ -166,9 +164,9 @@ os.chdir("/subdir")
 print(os.listdir())
 os.chdir("/")
 
-os.umount("/")
+vfs.umount("/")
 print(os.listdir("/"))
-os.umount("/mnt")
+vfs.umount("/mnt")
 
 # chdir to a non-existent mount point (current directory should remain unchanged)
 try:
@@ -178,7 +176,7 @@ except OSError:
 print(os.getcwd())
 
 # chdir to a non-existent subdirectory in a mounted filesystem
-os.mount(Filesystem(5, 1), "/mnt")
+vfs.mount(Filesystem(5, 1), "/mnt")
 try:
     os.chdir("/mnt/subdir")
 except OSError:

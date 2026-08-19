@@ -1,7 +1,11 @@
 {
     "deploy": [
-        "deploy.md"
+        "../deploy_flashmode.md",
+        "../deploy_nativeusb.md"
     ],
+    "deploy_options": {
+        "flash_offset": "0x1000"
+    },
     "docs": "",
     "features": [
         "Battery Charging",
@@ -16,10 +20,10 @@
         "TinyPICO Compatible"
     ],
     "images": [
-        "TinyS2+Product+Shot.jpg"
+        "unexpectedmaker_tinys2.jpg"
     ],
     "mcu": "esp32s2",
-    "product": "Tiny S2",
+    "product": "TinyS2",
     "thumbnail": "",
     "url": "https://unexpectedmaker.com/tinys2",
     "vendor": "Unexpected Maker"

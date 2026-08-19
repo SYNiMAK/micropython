@@ -28,10 +28,8 @@
 // https://4tronix.co.uk/picobot2/WT51822-S4AT.pdf
 #define MICROPY_HW_BOARD_NAME       "WT51822-S4AT"
 #define MICROPY_HW_MCU_NAME         "NRF51822"
-#define MICROPY_PY_SYS_PLATFORM     "nrf51"
 
 #define MICROPY_PY_MACHINE_UART     (1)
-#define MICROPY_PY_MACHINE_HW_SPI   (1)
 #define MICROPY_PY_MACHINE_RTCOUNTER (1)
 #define MICROPY_PY_MACHINE_I2C      (1)
 #define MICROPY_PY_MACHINE_ADC      (1)

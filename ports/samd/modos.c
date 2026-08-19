@@ -29,6 +29,9 @@
  * THE SOFTWARE.
  */
 
+// This file is never compiled standalone, it's included directly from
+// extmod/modos.c via MICROPY_PY_OS_INCLUDEFILE.
+
 #include "py/runtime.h"
 #include "py/mphal.h"
 #include "modmachine.h"
@@ -37,7 +40,7 @@
 #if defined(MCU_SAMD51)
 static bool initialized = false;
 
-STATIC void trng_start(void) {
+static void trng_start(void) {
     if (!initialized) {
         MCLK->APBCMASK.bit.TRNG_ = 1;
         REG_TRNG_CTRLA = TRNG_CTRLA_ENABLE;
@@ -69,45 +72,21 @@ uint32_t trng_random_u32(int delay) {
 #define TRNG_RANDOM_U32 trng_random_u32(10)
 #endif
 
-#if MICROPY_PY_OS_URANDOM
-STATIC mp_obj_t mp_os_urandom(mp_obj_t num) {
-    mp_int_t n = mp_obj_get_int(num);
-    vstr_t vstr;
-    vstr_init_len(&vstr, n);
+void mp_hal_get_random(size_t n, uint8_t *buf) {
     uint32_t rngval = 0;
-
     trng_start();
     for (int i = 0; i < n; i++) {
         if ((i % 4) == 0) {
             rngval = TRNG_RANDOM_U32;
         }
-        vstr.buf[i] = rngval & 0xff;
+        buf[i] = rngval & 0xff;
         rngval >>= 8;
     }
-    return mp_obj_new_bytes_from_vstr(&vstr);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_os_urandom_obj, mp_os_urandom);
-
-#endif // MICROPY_PY_OS_URANDOM
 
 #if MICROPY_PY_OS_DUPTERM_BUILTIN_STREAM
 bool mp_os_dupterm_is_builtin_stream(mp_const_obj_t stream) {
     const mp_obj_type_t *type = mp_obj_get_type(stream);
     return type == &machine_uart_type;
 }
-#endif
-
-#if MICROPY_PY_OS_DUPTERM_NOTIFY
-STATIC mp_obj_t mp_os_dupterm_notify(mp_obj_t obj_in) {
-    (void)obj_in;
-    for (;;) {
-        int c = mp_os_dupterm_rx_chr();
-        if (c < 0) {
-            break;
-        }
-        ringbuf_put(&stdin_ringbuf, c);
-    }
-    return mp_const_none;
-}
-STATIC MP_DEFINE_CONST_FUN_OBJ_1(mp_os_dupterm_notify_obj, mp_os_dupterm_notify);
 #endif

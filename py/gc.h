@@ -58,6 +58,11 @@ void gc_collect_end(void);
 // Use this function to sweep the whole heap and run all finalisers
 void gc_sweep_all(void);
 
+// These functions are used to manage weakrefs.
+void gc_weakref_mark(void *ptr);
+void gc_weakref_about_to_be_freed(void *ptr);
+void gc_weakref_sweep(void);
+
 enum {
     GC_ALLOC_FLAG_HAS_FINALISER = 1,
 };
@@ -75,9 +80,13 @@ typedef struct _gc_info_t {
     size_t num_1block;
     size_t num_2block;
     size_t max_block;
+    #if MICROPY_GC_SPLIT_HEAP_AUTO
+    size_t max_new_split;
+    #endif
 } gc_info_t;
 
 void gc_info(gc_info_t *info);
+void gc_info_fast(gc_info_t *info);
 void gc_dump_info(const mp_print_t *print);
 void gc_dump_alloc_table(const mp_print_t *print);
 

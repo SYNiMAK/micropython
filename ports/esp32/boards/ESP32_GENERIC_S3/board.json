@@ -1,7 +1,10 @@
 {
     "deploy": [
-        "../deploy_s3.md"
+        "../deploy.md"
     ],
+    "deploy_options": {
+        "flash_offset": "0"
+    },
     "docs": "",
     "features": [
         "BLE",
@@ -19,5 +22,8 @@
     "vendor": "Espressif",
     "variants": {
         "SPIRAM_OCT": "Support for Octal-SPIRAM"
+    },
+    "old_variants": {
+        "FLASH_4M": ["4MiB flash", "Use the standard variant instead."]
     }
 }

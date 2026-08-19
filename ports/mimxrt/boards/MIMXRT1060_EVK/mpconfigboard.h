@@ -65,6 +65,15 @@
     { 0 }, { 0 }, \
     { IOMUXC_GPIO_AD_B1_07_LPI2C3_SCL }, { IOMUXC_GPIO_AD_B1_06_LPI2C3_SDA },
 
+#define MICROPY_HW_CAN1_NAME "CAN1"
+#define MICROPY_HW_NUM_CAN (1)
+#define MICROPY_HW_CAN_INDEX { 2 }
+#define MICROPY_HW_NUM_CAN_IRQS (1)
+
+#define IOMUX_TABLE_CAN \
+    { 0 }, { 0 }, \
+    { IOMUXC_GPIO_AD_B0_14_FLEXCAN2_TX }, { IOMUXC_GPIO_AD_B0_15_FLEXCAN2_RX },
+
 #define MICROPY_PY_MACHINE_I2S (1)
 #define MICROPY_HW_I2S_NUM (1)
 #define I2S_CLOCK_MUX { 0, kCLOCK_Sai1Mux, kCLOCK_Sai2Mux }
@@ -157,10 +166,6 @@
 // Transceiver Phy Address
 #define ENET_PHY_ADDRESS    (2)
 #define ENET_PHY_OPS        phyksz8081_ops
-
-// Etherner PIN definitions
-#define ENET_RESET_PIN      &pin_GPIO_AD_B0_09
-#define ENET_INT_PIN        &pin_GPIO_AD_B0_10
 
 #define IOMUX_TABLE_ENET \
     { IOMUXC_GPIO_B1_04_ENET_RX_DATA00, 0, 0xB0E9u }, \

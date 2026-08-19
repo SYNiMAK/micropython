@@ -10,6 +10,7 @@
 #define MICROPY_HW_LED_OFF(pin) (mp_hal_pin_high(pin))
 
 #define MICROPY_HW_NUM_PIN_IRQS (3 * 32)
+#define MICROPY_PY_MACHINE_SDCARD    (0)
 
 // Define mapping logical UART # to hardware UART #
 // RX/TX      HW-UART    Logical UART
@@ -86,3 +87,5 @@
         I2S_GPIO(1, WS, TX, GPIO_EMC_27, IOMUXC_GPIO_EMC_27_SAI1_TX_SYNC),  \
         I2S_GPIO(1, SD, TX, GPIO_EMC_25, IOMUXC_GPIO_EMC_25_SAI1_TX_DATA00), \
     }
+
+#define XBARA1  XBARA

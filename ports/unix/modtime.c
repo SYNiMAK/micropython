@@ -34,6 +34,7 @@
 
 #include "py/mphal.h"
 #include "py/runtime.h"
+#include "shared/timeutils/timeutils.h"
 
 #ifdef _WIN32
 static inline int msec_sleep_tv(struct timeval *tv) {
@@ -61,7 +62,7 @@ static inline int msec_sleep_tv(struct timeval *tv) {
 #error Unsupported clock() implementation
 #endif
 
-STATIC mp_obj_t mp_time_time_get(void) {
+static mp_obj_t mp_time_time_get(void) {
     #if MICROPY_PY_BUILTINS_FLOAT && MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_DOUBLE
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -73,7 +74,7 @@ STATIC mp_obj_t mp_time_time_get(void) {
 }
 
 // Note: this is deprecated since CPy3.3, but pystone still uses it.
-STATIC mp_obj_t mod_time_clock(void) {
+static mp_obj_t mod_time_clock(void) {
     #if MICROPY_PY_BUILTINS_FLOAT
     // float cannot represent full range of int32 precisely, so we pre-divide
     // int to reduce resolution, and then actually do float division hoping
@@ -83,9 +84,9 @@ STATIC mp_obj_t mod_time_clock(void) {
     return mp_obj_new_int((mp_int_t)clock());
     #endif
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_0(mod_time_clock_obj, mod_time_clock);
+static MP_DEFINE_CONST_FUN_OBJ_0(mod_time_clock_obj, mod_time_clock);
 
-STATIC mp_obj_t mp_time_sleep(mp_obj_t arg) {
+static mp_obj_t mp_time_sleep(mp_obj_t arg) {
     #if MICROPY_PY_BUILTINS_FLOAT
     struct timeval tv;
     mp_float_t val = mp_obj_get_float(arg);
@@ -94,6 +95,7 @@ STATIC mp_obj_t mp_time_sleep(mp_obj_t arg) {
     tv.tv_sec = (suseconds_t)ipart;
     int res;
     while (1) {
+        mp_handle_pending(MP_HANDLE_PENDING_CALLBACKS_AND_EXCEPTIONS);
         MP_THREAD_GIL_EXIT();
         res = sleep_select(0, NULL, NULL, NULL, &tv);
         MP_THREAD_GIL_ENTER();
@@ -103,7 +105,6 @@ STATIC mp_obj_t mp_time_sleep(mp_obj_t arg) {
         if (res != -1 || errno != EINTR) {
             break;
         }
-        mp_handle_pending(true);
         // printf("select: EINTR: %ld:%ld\n", tv.tv_sec, tv.tv_usec);
         #else
         break;
@@ -113,29 +114,24 @@ STATIC mp_obj_t mp_time_sleep(mp_obj_t arg) {
     #else
     int seconds = mp_obj_get_int(arg);
     for (;;) {
+        mp_handle_pending(MP_HANDLE_PENDING_CALLBACKS_AND_EXCEPTIONS);
         MP_THREAD_GIL_EXIT();
         seconds = sleep(seconds);
         MP_THREAD_GIL_ENTER();
         if (seconds == 0) {
             break;
         }
-        mp_handle_pending(true);
     }
     #endif
     return mp_const_none;
 }
 
-STATIC mp_obj_t mod_time_gm_local_time(size_t n_args, const mp_obj_t *args, struct tm *(*time_func)(const time_t *timep)) {
+static mp_obj_t mod_time_gm_local_time(size_t n_args, const mp_obj_t *args, struct tm *(*time_func)(const time_t *timep)) {
     time_t t;
     if (n_args == 0) {
         t = time(NULL);
     } else {
-        #if MICROPY_PY_BUILTINS_FLOAT && MICROPY_FLOAT_IMPL == MICROPY_FLOAT_IMPL_DOUBLE
-        mp_float_t val = mp_obj_get_float(args[0]);
-        t = (time_t)MICROPY_FLOAT_C_FUN(trunc)(val);
-        #else
-        t = mp_obj_get_int(args[0]);
-        #endif
+        t = (time_t)timeutils_obj_get_timestamp(args[0]);
     }
     struct tm *tm = time_func(&t);
 
@@ -159,17 +155,17 @@ STATIC mp_obj_t mod_time_gm_local_time(size_t n_args, const mp_obj_t *args, stru
     return ret;
 }
 
-STATIC mp_obj_t mod_time_gmtime(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mod_time_gmtime(size_t n_args, const mp_obj_t *args) {
     return mod_time_gm_local_time(n_args, args, gmtime);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_time_gmtime_obj, 0, 1, mod_time_gmtime);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_time_gmtime_obj, 0, 1, mod_time_gmtime);
 
-STATIC mp_obj_t mod_time_localtime(size_t n_args, const mp_obj_t *args) {
+static mp_obj_t mod_time_localtime(size_t n_args, const mp_obj_t *args) {
     return mod_time_gm_local_time(n_args, args, localtime);
 }
-STATIC MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_time_localtime_obj, 0, 1, mod_time_localtime);
+static MP_DEFINE_CONST_FUN_OBJ_VAR_BETWEEN(mod_time_localtime_obj, 0, 1, mod_time_localtime);
 
-STATIC mp_obj_t mod_time_mktime(mp_obj_t tuple) {
+static mp_obj_t mod_time_mktime(mp_obj_t tuple) {
     size_t len;
     mp_obj_t *elem;
     mp_obj_get_array(tuple, &len, &elem);
@@ -193,10 +189,10 @@ STATIC mp_obj_t mod_time_mktime(mp_obj_t tuple) {
         time.tm_isdst = -1; // auto-detect
     }
     time_t ret = mktime(&time);
-    if (ret == -1) {
+    if (ret == (time_t)-1) {
         mp_raise_msg(&mp_type_OverflowError, MP_ERROR_TEXT("invalid mktime usage"));
     }
-    return mp_obj_new_int(ret);
+    return timeutils_obj_from_timestamp(ret);
 }
 MP_DEFINE_CONST_FUN_OBJ_1(mod_time_mktime_obj, mod_time_mktime);
 
